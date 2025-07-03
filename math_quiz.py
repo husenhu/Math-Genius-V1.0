@@ -45,7 +45,8 @@ class MathQuizApp(QWidget):
                 'rating_excellent': 'Sangat Baik',
                 'rating_great': 'Bagus',
                 'rating_good': 'Cukup Baik',
-                'rating_needs_practice': 'Perlu Latihan Lagi'
+                'rating_needs_practice': 'Perlu Latihan Lagi',
+                'not_available': 'N/A' # New translation for 'Not Available'
             },
             'en': {
                 'app_title': 'Math Genius v1.0',
@@ -78,12 +79,14 @@ class MathQuizApp(QWidget):
                 'rating_excellent': 'Excellent',
                 'rating_great': 'Great',
                 'rating_good': 'Good',
-                'rating_needs_practice': 'Needs More Practice'
+                'rating_needs_practice': 'Needs More Practice',
+                'not_available': 'N/A' # New translation for 'Not Available'
             }
         }
         self.quiz_timer = QTimer(self)
         self.quiz_timer.timeout.connect(self.update_timer)
         self.elapsed_time = 0 # Initialize elapsed time in seconds
+        self.current_score = 0 # Initialize current_score here
 
         self.init_ui()
         self.load_scores()
@@ -420,6 +423,13 @@ class MathQuizApp(QWidget):
             with open(self.scores_file, 'r') as f:
                 try:
                     self.scores = json.load(f)
+                    # Ensure all loaded scores have 'time_taken' and 'rating' keys
+                    # This handles compatibility with older data.json files
+                    for score_entry in self.scores:
+                        if 'time_taken' not in score_entry:
+                            score_entry['time_taken'] = 0 # Default value for old entries
+                        if 'rating' not in score_entry:
+                            score_entry['rating'] = self.get_text('not_available') # Default value for old entries
                 except json.JSONDecodeError:
                     self.scores = []
         else:
@@ -441,13 +451,17 @@ class MathQuizApp(QWidget):
             return
 
         for entry in self.scores:
-            minutes = entry['time_taken'] // 60
-            seconds = entry['time_taken'] % 60
+            # Safely get time_taken and rating, providing defaults for old entries
+            time_taken = entry.get('time_taken', 0)
+            rating = entry.get('rating', self.get_text('not_available'))
+
+            minutes = time_taken // 60
+            seconds = time_taken % 60
             time_str = f"{minutes:02d}:{seconds:02d}"
             self.history_list.addItem(
                 f"{entry['name']}: {entry['score']} {self.get_text('score')} | "
                 f"{self.get_text('time')}: {time_str} | "
-                f"{self.get_text('rating')}: {entry['rating']}"
+                f"{self.get_text('rating')}: {rating}"
             )
 
     def show_main_menu(self):
