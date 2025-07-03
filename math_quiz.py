@@ -15,7 +15,7 @@ class MathQuizApp(QWidget):
         self.current_language = 'id'  # Default language is Indonesian
         self.translations = {
             'id': {
-                'app_title': 'Math Genius v1.0', # Updated title
+                'app_title': 'Math Genius v1.0',
                 'welcome': 'Selamat Datang di Kuis Matematika!',
                 'enter_name': 'Masukkan Nama Anda:',
                 'start_quiz': 'Mulai Kuis',
@@ -25,6 +25,7 @@ class MathQuizApp(QWidget):
                 'your_answer': 'Jawaban Anda:',
                 'submit': 'Kirim',
                 'score': 'Skor Anda:',
+                'time': 'Waktu:', # New translation for time
                 'correct_answer': 'Jawaban Benar!',
                 'wrong_answer': 'Jawaban Salah. Jawaban yang benar adalah:',
                 'quiz_finished': 'Kuis Selesai!',
@@ -38,10 +39,16 @@ class MathQuizApp(QWidget):
                 'question_type_div': 'Berapakah hasil dari {} : {}? (Bulatkan ke bawah jika ada sisa)',
                 'total_questions': 'Total Pertanyaan:',
                 'correct_questions': 'Jawaban Benar:',
-                'final_score': 'Skor Akhir:'
+                'final_score': 'Skor Akhir:',
+                'time_taken': 'Waktu Pengerjaan:', # New translation for time taken on result page
+                'rating': 'Rating:', # New translation for rating
+                'rating_excellent': 'Sangat Baik',
+                'rating_great': 'Bagus',
+                'rating_good': 'Cukup Baik',
+                'rating_needs_practice': 'Perlu Latihan Lagi'
             },
             'en': {
-                'app_title': 'Math Genius v1.0', # Updated title
+                'app_title': 'Math Genius v1.0',
                 'welcome': 'Welcome to the Math Quiz!',
                 'enter_name': 'Enter Your Name:',
                 'start_quiz': 'Start Quiz',
@@ -51,6 +58,7 @@ class MathQuizApp(QWidget):
                 'your_answer': 'Your Answer:',
                 'submit': 'Submit',
                 'score': 'Your Score:',
+                'time': 'Time:', # New translation for time
                 'correct_answer': 'Correct Answer!',
                 'wrong_answer': 'Wrong Answer. The correct answer was:',
                 'quiz_finished': 'Quiz Finished!',
@@ -64,9 +72,19 @@ class MathQuizApp(QWidget):
                 'question_type_div': 'What is {} : {}? (Round down if there\'s a remainder)',
                 'total_questions': 'Total Questions:',
                 'correct_questions': 'Correct Answers:',
-                'final_score': 'Final Score:'
+                'final_score': 'Final Score:',
+                'time_taken': 'Time Taken:', # New translation for time taken on result page
+                'rating': 'Rating:', # New translation for rating
+                'rating_excellent': 'Excellent',
+                'rating_great': 'Great',
+                'rating_good': 'Good',
+                'rating_needs_practice': 'Needs More Practice'
             }
         }
+        self.quiz_timer = QTimer(self)
+        self.quiz_timer.timeout.connect(self.update_timer)
+        self.elapsed_time = 0 # Initialize elapsed time in seconds
+
         self.init_ui()
         self.load_scores()
         self.update_history_display()
@@ -143,9 +161,16 @@ class MathQuizApp(QWidget):
         self.quiz_layout = QVBoxLayout()
         self.quiz_page.setLayout(self.quiz_layout)
 
+        # Top bar for Score and Time
+        top_bar_layout = QHBoxLayout()
         self.score_display = QLabel(self.get_text('score') + " 0")
-        self.score_display.setAlignment(Qt.AlignRight)
-        self.quiz_layout.addWidget(self.score_display)
+        self.score_display.setAlignment(Qt.AlignLeft)
+        top_bar_layout.addWidget(self.score_display)
+
+        self.timer_display = QLabel(self.get_text('time') + " 00:00")
+        self.timer_display.setAlignment(Qt.AlignRight)
+        top_bar_layout.addWidget(self.timer_display)
+        self.quiz_layout.addLayout(top_bar_layout)
 
         self.question_label = QLabel(self.get_text('question') + " ")
         self.question_label.setAlignment(Qt.AlignCenter)
@@ -184,6 +209,16 @@ class MathQuizApp(QWidget):
         self.final_score_label.setStyleSheet("font-size: 20px; margin-top: 10px;")
         self.result_layout.addWidget(self.final_score_label)
 
+        self.final_time_label = QLabel("") # New label for final time
+        self.final_time_label.setAlignment(Qt.AlignCenter)
+        self.final_time_label.setStyleSheet("font-size: 18px; margin-top: 5px;")
+        self.result_layout.addWidget(self.final_time_label)
+
+        self.final_rating_label = QLabel("") # New label for final rating
+        self.final_rating_label.setAlignment(Qt.AlignCenter)
+        self.final_rating_label.setStyleSheet("font-size: 18px; margin-top: 5px; font-weight: bold;")
+        self.result_layout.addWidget(self.final_rating_label)
+
         self.back_to_menu_button = QPushButton(self.get_text('back_to_menu'))
         self.back_to_menu_button.clicked.connect(self.show_main_menu)
         self.result_layout.addWidget(self.back_to_menu_button, alignment=Qt.AlignCenter)
@@ -216,6 +251,7 @@ class MathQuizApp(QWidget):
             self.score_display.setText(self.get_text('score') + " " + str(self.current_score))
         else:
             self.score_display.setText(self.get_text('score') + " 0")
+        self.timer_display.setText(self.get_text('time') + " 00:00") # Reset timer display on language change
         self.question_label.setText(self.get_text('question') + " ") # Reset question label for new language
         self.answer_input.setPlaceholderText(self.get_text('answer_placeholder'))
         self.submit_button.setText(self.get_text('submit'))
@@ -236,11 +272,26 @@ class MathQuizApp(QWidget):
         self.current_score = 0
         self.current_question_index = 0
         self.correct_answers_count = 0
+        self.elapsed_time = 0 # Reset elapsed time for new quiz
+        self.update_timer_display() # Update timer display immediately
+        self.quiz_timer.start(1000) # Start the timer (fires every 1000 ms = 1 second)
+
         self.generate_questions()
         self.update_score_display()
         self.display_next_question()
         self.stacked_widget.setCurrentWidget(self.quiz_page)
         self.feedback_label.clear() # Clear feedback from previous quiz
+
+    def update_timer(self):
+        self.elapsed_time += 1
+        self.update_timer_display()
+
+    def update_timer_display(self):
+        minutes = self.elapsed_time // 60
+        seconds = self.elapsed_time % 60
+        time_str = f"{minutes:02d}:{seconds:02d}"
+        self.timer_display.setText(self.get_text('time') + f" {time_str}")
+
 
     def generate_questions(self):
         self.questions = []
@@ -325,17 +376,41 @@ class MathQuizApp(QWidget):
     def update_score_display(self):
         self.score_display.setText(self.get_text('score') + f" {self.current_score}")
 
+    def calculate_rating(self, correct_count, total_questions):
+        if total_questions == 0:
+            return self.get_text('rating_needs_practice') # Avoid division by zero
+
+        percentage = (correct_count / total_questions) * 100
+        if percentage >= 90:
+            return self.get_text('rating_excellent')
+        elif percentage >= 70:
+            return self.get_text('rating_great')
+        elif percentage >= 50:
+            return self.get_text('rating_good')
+        else:
+            return self.get_text('rating_needs_practice')
+
     def end_quiz(self):
-        self.save_score(self.player_name, self.current_score)
-        self.update_history_display()
+        self.quiz_timer.stop() # Stop the timer when quiz ends
 
         total_questions = len(self.questions)
+        calculated_rating = self.calculate_rating(self.correct_answers_count, total_questions)
+        self.save_score(self.player_name, self.current_score, self.elapsed_time, calculated_rating)
+        self.update_history_display()
+
         final_message = (
             f"{self.get_text('total_questions')} {total_questions}\n"
             f"{self.get_text('correct_questions')} {self.correct_answers_count}\n"
             f"{self.get_text('final_score')} {self.current_score}"
         )
         self.final_score_label.setText(final_message)
+
+        minutes = self.elapsed_time // 60
+        seconds = self.elapsed_time % 60
+        time_str = f"{minutes:02d}:{seconds:02d}"
+        self.final_time_label.setText(self.get_text('time_taken') + f" {time_str}")
+        self.final_rating_label.setText(self.get_text('rating') + f" {calculated_rating}")
+
         self.stacked_widget.setCurrentWidget(self.result_page)
 
     def load_scores(self):
@@ -350,10 +425,10 @@ class MathQuizApp(QWidget):
         else:
             self.scores = []
 
-    def save_score(self, name, score):
-        self.scores.append({'name': name, 'score': score})
-        # Sort scores in descending order to show highest scores first
-        self.scores.sort(key=lambda x: x['score'], reverse=True)
+    def save_score(self, name, score, time_taken, rating):
+        self.scores.append({'name': name, 'score': score, 'time_taken': time_taken, 'rating': rating})
+        # Sort scores in descending order by score, then ascending by time_taken for ties
+        self.scores.sort(key=lambda x: (x['score'], -x['time_taken']), reverse=True)
         # Keep only the top 10 scores, for example
         self.scores = self.scores[:10]
         with open(self.scores_file, 'w') as f:
@@ -366,7 +441,14 @@ class MathQuizApp(QWidget):
             return
 
         for entry in self.scores:
-            self.history_list.addItem(f"{entry['name']}: {entry['score']} {self.get_text('score')}")
+            minutes = entry['time_taken'] // 60
+            seconds = entry['time_taken'] % 60
+            time_str = f"{minutes:02d}:{seconds:02d}"
+            self.history_list.addItem(
+                f"{entry['name']}: {entry['score']} {self.get_text('score')} | "
+                f"{self.get_text('time')}: {time_str} | "
+                f"{self.get_text('rating')}: {entry['rating']}"
+            )
 
     def show_main_menu(self):
         self.stacked_widget.setCurrentWidget(self.main_menu_page)
